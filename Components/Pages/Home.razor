@@ -1,0 +1,74 @@
+﻿@page "/"
+@using Microsoft.AspNetCore.Components.Authorization
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager Navigation
+
+<PageTitle>Tic Tac Toe - Welcome</PageTitle>
+
+<div class="hero-container">
+    <div class="hero-content">
+        <h1 class="hero-title">🎯 Tic Tac Toe</h1>
+        <p class="hero-subtitle">Challenge the computer in this classic strategy game!</p>
+        
+        <div class="features">
+            <div class="feature-item">
+                <span class="feature-icon">🏆</span>
+                <h3>Track Your Wins</h3>
+                <p>Keep track of your victories and improve your win rate</p>
+            </div>
+            <div class="feature-item">
+                <span class="feature-icon">🤖</span>
+                <h3>Smart AI Opponent</h3>
+                <p>Play against an intelligent computer that adapts to your moves</p>
+            </div>
+            <div class="feature-item">
+                <span class="feature-icon">📱</span>
+                <h3>Mobile Friendly</h3>
+                <p>Play anywhere, anytime on any device</p>
+            </div>
+        </div>
+
+        <AuthorizeView>
+            <Authorized>
+                <div class="cta-section">
+                    <h2>Welcome back, @context.User.Identity?.Name!</h2>
+                    <p>Ready to play another round?</p>
+                    <button class="btn btn-primary btn-lg" @onclick="NavigateToGame">
+                        🎮 Start Playing
+                    </button>
+                </div>
+            </Authorized>
+            <NotAuthorized>
+                <div class="cta-section">
+                    <h2>Ready to Play?</h2>
+                    <p>Sign up or log in to start tracking your wins!</p>
+                    <div class="auth-buttons">
+                        <button class="btn btn-primary" @onclick="NavigateToRegister">
+                            📝 Sign Up
+                        </button>
+                        <button class="btn btn-secondary" @onclick="NavigateToLogin">
+                            🔑 Log In
+                        </button>
+                    </div>
+                </div>
+            </NotAuthorized>
+        </AuthorizeView>
+    </div>
+</div>
+
+@code {
+    private void NavigateToGame()
+    {
+        Navigation.NavigateTo("/game");
+    }
+
+    private void NavigateToLogin()
+    {
+        Navigation.NavigateTo("/Account/Login");
+    }
+
+    private void NavigateToRegister()
+    {
+        Navigation.NavigateTo("/Account/Register");
+    }
+}

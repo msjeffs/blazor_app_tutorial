@@ -1,0 +1,215 @@
+@page "/game"
+@using Microsoft.AspNetCore.Authorization
+@using System.Text.Json
+@using TicTacToeApp.Data
+@using TicTacToeApp.Services
+@using Microsoft.AspNetCore.Identity
+@inject GameService GameService
+@inject UserManager<ApplicationUser> UserManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager Navigation
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<PageTitle>Tic Tac Toe - Game</PageTitle>
+
+<div class="game-container">
+    <div class="game-header">
+        <h1 class="game-title">🎯 Tic Tac Toe</h1>
+        <div class="player-stats">
+            <div class="stat-item">
+                <span class="stat-label">Wins:</span>
+                <span class="stat-value">@userWins</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Games:</span>
+                <span class="stat-value">@totalGames</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Win Rate:</span>
+                <span class="stat-value">@winRate%</span>
+            </div>
+        </div>
+    </div>
+
+    @if (currentGame != null)
+    {
+        <div class="game-board-container">
+            <div class="game-status">
+                @if (currentGame.IsCompleted)
+                {
+                    <h2 class="status-message @GetStatusClass()">
+                        @GetGameResultMessage()
+                    </h2>
+                    <button class="btn btn-primary btn-lg" @onclick="StartNewGame">
+                        🎮 Play Again
+                    </button>
+                }
+                else
+                {
+                    <h2 class="status-message active">Your Turn - Choose a square!</h2>
+                }
+            </div>
+
+            <div class="game-board">
+                @for (int i = 0; i < 9; i++)
+                {
+                    int index = i; // Capture for lambda
+                    <button class="board-cell @GetCellClass(board[index])" 
+                            @onclick="() => MakeMove(index)"
+                            disabled="@(!string.IsNullOrEmpty(board[index]) || currentGame.IsCompleted || isProcessing)">
+                        @if (!string.IsNullOrEmpty(board[index]))
+                        {
+                            <span class="cell-symbol @(board[index] == "X" ? "player" : "computer")">
+                                @board[index]
+                            </span>
+                        }
+                    </button>
+                }
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="game-loading">
+            <div class="loading-spinner"></div>
+            <p>Starting your game...</p>
+        </div>
+    }
+
+    @if (errorMessage != null)
+    {
+        <div class="alert alert-danger">
+            @errorMessage
+        </div>
+    }
+</div>
+
+@code {
+    private Game? currentGame;
+    private string[] board = new string[9];
+    private string? errorMessage;
+    private bool isProcessing = false;
+    private int userWins = 0;
+    private int totalGames = 0;
+    private string winRate = "0";
+    private ApplicationUser? currentUser;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        if (!authState.User.Identity?.IsAuthenticated ?? true)
+        {
+            Navigation.NavigateTo("/Account/Login");
+            return;
+        }
+
+        currentUser = await UserManager.GetUserAsync(authState.User);
+        if (currentUser == null)
+        {
+            Navigation.NavigateTo("/Account/Login");
+            return;
+        }
+
+        await LoadUserStats();
+        await StartNewGame();
+    }
+
+    private async Task LoadUserStats()
+    {
+        if (currentUser != null)
+        {
+            // Refresh user data from database
+            currentUser = await UserManager.FindByIdAsync(currentUser.Id);
+            if (currentUser != null)
+            {
+                userWins = currentUser.Wins;
+                totalGames = currentUser.TotalGamesPlayed;
+                winRate = totalGames > 0 ? ((double)userWins / totalGames * 100).ToString("F1") : "0";
+            }
+        }
+    }
+
+    private async Task StartNewGame()
+    {
+        try
+        {
+            isProcessing = true;
+            errorMessage = null;
+
+            if (currentUser == null)
+            {
+                Navigation.NavigateTo("/Account/Login");
+                return;
+            }
+
+            currentGame = await GameService.CreateNewGameAsync(currentUser.Id);
+            board = JsonSerializer.Deserialize<string[]>(currentGame.GameState) ?? new string[9];
+            
+            await LoadUserStats(); // Refresh stats
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error starting game: {ex.Message}";
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    private async Task MakeMove(int position)
+    {
+        if (currentGame == null || isProcessing || currentUser == null) return;
+
+        try
+        {
+            isProcessing = true;
+            errorMessage = null;
+
+            currentGame = await GameService.MakeMoveAsync(currentGame.Id, currentUser.Id, position);
+            board = JsonSerializer.Deserialize<string[]>(currentGame.GameState) ?? new string[9];
+            
+            if (currentGame.IsCompleted)
+            {
+                await LoadUserStats(); // Refresh stats when game completes
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    private string GetGameResultMessage()
+    {
+        return currentGame?.Result switch
+        {
+            GameResult.UserWin => "🎉 You Won!",
+            GameResult.ComputerWin => "🤖 Computer Won!",
+            GameResult.Draw => "🤝 It's a Draw!",
+            _ => ""
+        };
+    }
+
+    private string GetStatusClass()
+    {
+        return currentGame?.Result switch
+        {
+            GameResult.UserWin => "win",
+            GameResult.ComputerWin => "lose",
+            GameResult.Draw => "draw",
+            _ => ""
+        };
+    }
+
+    private string GetCellClass(string cellValue)
+    {
+        if (string.IsNullOrEmpty(cellValue)) return "empty";
+        return cellValue == "X" ? "player-move" : "computer-move";
+    }
+}
