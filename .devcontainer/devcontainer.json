@@ -1,0 +1,26 @@
+{
+    "name": "C# (.NET)",
+    "image": "mcr.microsoft.com/devcontainers/dotnet:9.0",
+    "features": {
+        "ghcr.io/devcontainers/features/node:1": {
+            "version": "lts"
+        },
+        "ghcr.io/devcontainers/features/github-cli:1": {}
+    },
+    "customizations": {
+        "vscode": {
+            "settings": {},
+            "extensions": [
+                "ms-dotnettools.csharp",
+                "ms-dotnettools.blazorwasm-companion",
+                "ms-dotnettools.csdevkit"
+            ]
+        }
+    },
+    "forwardPorts": [
+        5000,
+        5001
+    ],
+    "postCreateCommand": "dotnet restore && dotnet build",
+    "remoteUser": "vscode"
+}
